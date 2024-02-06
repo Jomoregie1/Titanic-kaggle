@@ -1,102 +1,80 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
 
-"""
-PassengerId - Passenger number
-Survived - 0 = Dead 1 = Alive
-Pclass - 1 = First class 2 = Second class 3 = Third class
-Name - Name of passenger
-Sex - Gender
-Age - Age of passenger
-SibSp - Number of siblings/Spouses
-Parch - Number of Parents/Children Aboard - 
-Ticket - Ticket
-Fare - Price of ticket(In British pound)
-Cabin - Location of stay for passenger.
-Embarked - C = Cherbourg Q = Queenstown S = Southampton
+# Load the dataset
+file_path = 'tested.csv'  # Update this to your dataset path
+titanic_data = pd.read_csv(file_path)
 
-"""
+# Data Cleaning and Preprocessing
+titanic_data['Age'].fillna(titanic_data['Age'].median(), inplace=True)
+titanic_data['Fare'].fillna(titanic_data['Fare'].median(), inplace=True)
+titanic_data['Embarked'].fillna(titanic_data['Embarked'].mode()[0], inplace=True)
+titanic_data['Cabin_Indicator'] = titanic_data['Cabin'].apply(lambda x: 0 if pd.isnull(x) else 1)
 
-# TODO Clean dataset
-# - Cabin has 78.2% of the data missing
-# - Name in the correct format.
-# - Restructuring age.
-# - Understand Fare price (British Pounds)
-# - Understand Ticket data.
+# Define features and target
+features = ['Pclass', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked', 'Cabin_Indicator']
+X = titanic_data[features]
+y = titanic_data['Survived']
 
+# Preprocessing for numerical and categorical features
+numeric_features = ['Age', 'SibSp', 'Parch', 'Fare']
+categorical_features = ['Pclass', 'Embarked']
 
-train_data = pd.read_csv("tested.csv")
-missing_data = train_data.isnull().sum()
-missing_data = missing_data[missing_data > 0]
+numeric_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='median')),
+    ('scaler', StandardScaler())
+])
 
-missing_data_percentage = (missing_data / len(train_data)) * 100
-missing_data_info = pd.DataFrame({'Missing Values': missing_data, 'Percentage (%)': missing_data_percentage})
-missing_data_info.sort_values(by='Percentage (%)', ascending=False)
+categorical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='most_frequent')),
+    ('onehot', OneHotEncoder(handle_unknown='ignore'))
+])
 
-# print(missing_data_info)
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', numeric_transformer, numeric_features),
+        ('cat', categorical_transformer, categorical_features),
+    ])
 
+# Create a simpler model to address the perfect accuracy issue
+model = LogisticRegression(max_iter=1000, random_state=0)
 
-train_data['CabinKnown'] = train_data['Cabin'].notnull().astype(int)
+# Bundle preprocessing and modeling code in a pipeline
+clf = Pipeline(steps=[('preprocessor', preprocessor),
+                      ('model', model)])
 
-# Filling missing 'Age' values with the median age
-median_age = train_data['Age'].median()
-train_data['Age'].fillna(median_age, inplace=True)
+# Cross-validation to evaluate model
+cv_scores = cross_val_score(clf, X, y, cv=5)
+print(f'CV Accuracy Scores: {cv_scores}')
+print(f'CV Accuracy Mean: {np.mean(cv_scores)}')
 
-# Filling missing 'Embarked' values with the mode (most common value)
-mode_embarked = train_data['Embarked'].mode()[0]
-train_data['Embarked'].fillna(mode_embarked, inplace=True)
-
-# Rechecking for missing data
-updated_missing_data = train_data.isnull().sum()
-updated_missing_data = updated_missing_data[updated_missing_data > 0]
-
-updated_missing_data_percentage = (updated_missing_data / len(train_data)) * 100
-
-# Updated missing data information
-updated_missing_data_info = pd.DataFrame(
-    {'Remaining Missing Values': updated_missing_data, 'Percentage (%)': updated_missing_data_percentage})
-updated_missing_data_info.sort_values(by='Percentage (%)', ascending=False)
-
-# print(updated_missing_data_info)
-
-
-summary_statistics = train_data.describe(include='all')
-summary_statistics.transpose()
-print(summary_statistics)
-
-
-# Set the aesthetic style of the plots
-sns.set(style="whitegrid")
-
-# Categorical: Distribution of passengers by sex
-plt.figure(figsize=(10, 6))
-sns.countplot(x='Sex', data=train_data)
-plt.title('Distribution of Passengers by Sex')
-plt.xlabel('Sex')
+# Data Visualization
+# Switching from 'Sex' to 'Embarked' for categorical visualization
+plt.figure(figsize=(6,4))
+sns.countplot(x='Embarked', hue='Survived', data=titanic_data)
+plt.title('Survival Rate by Embarkation Point')
+plt.xlabel('Embarkation Point')
 plt.ylabel('Count')
 plt.show()
 
-# Hierarchical: Survival rates by class and sex
-plt.figure(figsize=(10, 6))
-sns.barplot(x='Pclass', y='Survived', hue='Sex', data=train_data)
-plt.title('Survival Rates by Class and Sex')
-plt.xlabel('Passenger Class')
-plt.ylabel('Survival Rate')
+# Additional visualizations
+# Passengers by class
+plt.figure(figsize=(6,4))
+sns.countplot(x='Pclass', data=titanic_data)
+plt.title('Passenger Count by Class')
 plt.show()
 
-# Relational: Fare paid vs. Age
-plt.figure(figsize=(12, 6))
-sns.scatterplot(x='Age', y='Fare', hue='Survived', style='Pclass', data=train_data)
-plt.title('Fare vs. Age (Colored by Survival, Style by Class)')
-plt.xlabel('Age')
-plt.ylabel('Fare')
-plt.show()
-
-# Temporal: Histogram of Ages
-plt.figure(figsize=(10, 6))
-sns.histplot(train_data['Age'], bins=30, kde=True)
-plt.title('Distribution of Ages')
-plt.xlabel('Age')
-plt.ylabel('Frequency')
+# Age vs Fare Paid, colored by Survival
+plt.figure(figsize=(8,6))
+sns.scatterplot(x='Age', y='Fare', hue='Survived', data=titanic_data)
+plt.title('Age vs Fare Paid, Colored by Survival')
 plt.show()
