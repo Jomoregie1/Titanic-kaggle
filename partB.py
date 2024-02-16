@@ -1,5 +1,3 @@
-import requests
-from bs4 import BeautifulSoup
 import nltk
 from nltk.corpus import stopwords, wordnet
 from nltk.tokenize import word_tokenize
@@ -14,19 +12,13 @@ nltk.download('stopwords')
 nltk.download('wordnet')
 nltk.download('averaged_perceptron_tagger')
 
+
 def get_wordnet_pos(word):
     """Map POS tag to a format recognized by lemmatize() function."""
     tag = nltk.pos_tag([word])[0][1][0].upper()
     tag_dict = {"J": wordnet.ADJ, "N": wordnet.NOUN, "V": wordnet.VERB, "R": wordnet.ADV}
     return tag_dict.get(tag, wordnet.NOUN)
 
-def scrape_text(url):
-    """Scrape all paragraph text from a given URL."""
-    page = requests.get(url)
-    soup = BeautifulSoup(page.content, 'html.parser')
-    paragraphs = soup.find_all('p')
-    text = ' '.join([p.get_text() for p in paragraphs])
-    return text
 
 def preprocess_text(text):
     """Preprocess a given text by converting to lowercase, removing punctuation and stopwords."""
@@ -35,21 +27,29 @@ def preprocess_text(text):
     text = re.sub(r'\s+', ' ', text)
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
-    lemmatized_tokens = [lemmatizer.lemmatize(w, get_wordnet_pos(w)) for w in tokens if w not in stopwords.words('english')]
+    lemmatized_tokens = [lemmatizer.lemmatize(w, get_wordnet_pos(w)) for w in tokens if
+                         w not in stopwords.words('english')]
     return lemmatized_tokens
 
-# Article URLs and names
-articles = {
-    "Medieval Ship": "https://www.bbc.co.uk/news/uk-wales-67302907",
-    "AI Fitness Trainers": "https://www.bbc.co.uk/news/business-67861930"
-}
 
-# Scrape and preprocess text from both webpages
+# Article URLs and names
+articles = ["Medieval Ship", "AI Fitness Trainers"]
 texts = []
-for title, url in articles.items():
-    text = scrape_text(url)
-    tokens = preprocess_text(text)
-    texts.append(tokens)
+
+# Open the file "ship-timber-date.txt" for reading
+with open("ship-timber-date.txt", "r") as ship_text:
+    # Read the entire contents of the file into a variable
+    ship_contents = ship_text.read()
+
+# Open the file "ai-trainers.txt" for reading
+with open("ai-trainers.txt", "r") as ai_text:
+    # Read the entire contents of the file into a variable
+    ai_contents = ai_text.read()
+
+tokens_1 = preprocess_text(ship_contents)
+tokens_2 = preprocess_text(ai_contents)
+texts.append(tokens_1)
+texts.append(tokens_2)
 
 # Prepare Document-Term Matrix
 dictionary = corpora.Dictionary(texts)
@@ -83,13 +83,13 @@ plt.show()
 # Task 2: Display and interpret the top 3 topics
 top_topics = lda_model.top_topics(corpus, topn=3)
 for idx, topic in enumerate(top_topics):
-    print(f"Top {idx+1} Topic Words and Weights:")
+    print(f"Top {idx + 1} Topic Words and Weights:")
     print(topic[0])  # Each topic's word distribution
     print("\n")
 
 # Task 3: Summarize the articles based on LDA topics
 article_summaries = {}
-for idx, article_title in enumerate(articles.keys()):
+for idx, article_title in enumerate(articles):
     bow = dictionary.doc2bow(texts[idx])
     topic_distribution = lda_model.get_document_topics(bow)
     dominant_topic = sorted(topic_distribution, key=lambda x: x[1], reverse=True)[0][0]
