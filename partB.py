@@ -66,17 +66,24 @@ fig, axes = plt.subplots(1, num_topics, figsize=(15, 10))  # Enlarged figure siz
 if num_topics == 1:
     axes = [axes]
 
-# Plot the bar graphs for each topic
 for i in range(num_topics):
     # Extract the top 10 words for the topic
     top_words = lda_model.show_topic(i, 10)
     # Convert top words into a DataFrame
     df = pd.DataFrame(top_words, columns=['term', 'prob']).set_index('term')
-    # Plot a horizontal bar graph
-    df.plot(kind='barh', ax=(axes[i] if num_topics > 1 else axes), title=f"Topic {i}", legend=False)
-    axes[i].invert_yaxis()  # Display the highest probability term at the top
 
-# Adjust the layout to ensure no overlaps and labels/titles are clear
+    # If only one topic, axes is not an array
+    if num_topics == 1:
+        ax = axes
+    else:
+        ax = axes[i]
+
+    # Plot a vertical bar graph
+    df.plot(kind='bar', ax=ax, title=f"Topic {i}", legend=False)
+    ax.set_ylabel('Probability')
+    ax.set_xlabel('Term')
+    ax.set_xticklabels(df.index, rotation=45, ha='right')  # Rotate term labels for better readability
+
 plt.tight_layout()
 plt.show()
 
